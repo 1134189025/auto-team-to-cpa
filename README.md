@@ -1,146 +1,245 @@
-<div align="center">
+# Auto Team to CPA
 
-# AutoTeam
+面向 ChatGPT Team / Codex 使用场景的多母号、批量子号和 CPA 认证文件同步管理工具。
 
-**面向 ChatGPT Team 的账号轮转与认证同步工具**
+本项目用于把多个 ChatGPT Team 管理员账号作为“母号”统一管理，通过 Freemail 自动收码创建和接入子号，完成 Codex OAuth 授权后，将可用认证文件同步到 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)。
 
-自动注册账号、获取 Codex 认证、按额度轮转席位，并与 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) 双向同步认证文件。
+> 重要声明：本项目仅供学习、研究和自用自动化管理场景参考。使用自动化注册、登录、邀请、账号池和认证文件同步可能违反相关服务条款，也可能触发风控、封号、IP 限制或数据损失。请自行评估风险并承担后果。
 
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![Playwright](https://img.shields.io/badge/Playwright-Chromium-2EAD33?style=for-the-badge&logo=playwright&logoColor=white)](https://playwright.dev)
-[![uv](https://img.shields.io/badge/uv-Package_Manager-DE5FE9?style=for-the-badge)](https://docs.astral.sh/uv/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-API_&_Web-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![Vue](https://img.shields.io/badge/Vue_3-Frontend-4FC08D?style=for-the-badge&logo=vue.js&logoColor=white)](https://vuejs.org)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
+## 致谢原项目
 
-</div>
+本仓库基于并致敬 [cnitlrt/AutoTeam](https://github.com/cnitlrt/AutoTeam)。
 
----
+原项目提供了 ChatGPT Team 账号轮转、Codex OAuth、额度检测、Web 面板、CPA/Sub2API 同步等核心思路和基础实现。本仓库在此基础上更聚焦于：
 
-> **免责声明**：本项目仅供学习和研究用途。使用本工具可能违反 OpenAI 的服务条款，包括但不限于自动化操作、多账号管理等。使用者需自行承担所有风险，包括账号封禁、IP 限制等后果。作者不对任何因使用本工具造成的损失承担责任。
+- 多母号批量管理
+- 每个母号下的子号补齐和状态追踪
+- 子号 Codex auth 自动补传到 CPA
+- 疑似封禁、401、卡住账号等场景的巡检和修复
+- 更适合 CPA 使用链路的控制台操作
 
-## 特性
+如果这个项目对你有帮助，也请去原项目点 Star 支持作者。
 
-| | 功能 | 描述 |
-|---|---|---|
-| 📧 | **自动注册** | CloudMail 临时邮箱 + Playwright 自动注册 |
-| 🔐 | **Codex OAuth** | 自动登录 Codex，无密码时可走邮箱验证码 |
-| 🔑 | **手动 OAuth 导入** | 支持 localhost 自动回调，也支持手动粘贴回调 URL |
-| 🔄 | **智能轮转** | 额度不足自动移出，旧号恢复后优先复用 |
-| ☁️ | **CPA 双向同步** | 本地 active 上传到 CPA，也可从 CPA 反向导入 |
-| 🖥️ | **Web 面板** | 仪表盘、同步中心、OAuth 登录、任务历史、日志、设置 |
-| 🔍 | **自动巡检** | 后台定时检查额度并触发轮转 |
-| 📤 | **导出认证** | 一键导出 Codex CLI 格式 auth.json，直连 OpenAI 不走代理 |
-| 🐳 | **Docker** | 支持容器部署与数据持久化 |
+## 主要功能
 
-**首次使用建议直接看**：[从零开始部署教程](docs/getting-started.md)
+| 功能 | 说明 |
+|------|------|
+| 多母号管理 | 支持添加、批量导入、启用/停用、登录多个 ChatGPT Team 管理员账号 |
+| 子号批量创建 | 遍历启用母号，通过 Freemail 自动创建临时邮箱并完成注册/加入流程 |
+| Team 状态对账 | 记录本地子号、远端 Team 成员、待邀请、已移出、疑似封禁等状态 |
+| Codex OAuth | 为子号或主号生成 Codex 认证文件，保存为 CPA 兼容格式 |
+| CPA 同步 | 将已授权的子号 auth 补传到 CLIProxyAPI，也支持主号 Codex auth 同步 |
+| 健康检测 | 检测子号额度、401、认证失效、疑似封禁和卡住阶段 |
+| 自动修复 | 支持修复卡住账号、修复母子关联、清理待邀请、移出疑似封禁成员 |
+| Web 控制台 | 提供总览、母号管理、子号记录、设置、日志和后台任务状态 |
+| Docker 部署 | 支持容器运行，并通过 `data/` 持久化配置和认证文件 |
+
+## 适用场景
+
+- 你已经有 ChatGPT Team 订阅，并希望批量维护多个 Team 母号。
+- 你需要把 Codex 认证文件统一同步到 CLIProxyAPI。
+- 你需要定期检查子号状态，发现 401、额度耗尽或疑似封禁后再补位。
+- 你希望通过 Web 面板完成母号登录、批量补号、CPA 补传和日志排查。
+
+## 环境要求
+
+- Python 3.10+
+- [uv](https://docs.astral.sh/uv/)
+- Playwright Chromium
+- ChatGPT Team 管理员账号
+- Freemail API 服务和 Root Token
+- CLIProxyAPI 服务和管理密钥
+
+Windows、Linux、macOS 均可运行。Linux 无图形环境时建议使用 Docker，或确保 Playwright 运行环境完整。
 
 ## 快速开始
 
-### 安装
+### 1. 克隆仓库
 
 ```bash
-# Linux
-bash setup.sh
-# 或手动: uv sync && uv run playwright install chromium
+git clone https://github.com/1134189025/auto-team-to-cpa.git
+cd auto-team-to-cpa
+```
 
-# Windows / macOS
+### 2. 安装依赖
+
+```bash
 uv sync
 uv run playwright install chromium
 ```
 
-支持 Linux、Windows、macOS。Windows/macOS 不需要 xvfb。
+Windows 也可以直接运行：
 
-### 启动
-
-```bash
-# Web 面板 + API（推荐）
-uv run autoteam api
-
-# 或直接轮转
-uv run autoteam rotate
+```powershell
+.\启动脚本.bat
 ```
 
-首次启动会自动引导配置 CloudMail、CPA、API Key，并验证连通性。
+脚本会自动检查依赖、构建前端并启动后端服务。
 
-### Docker 部署
+### 3. 配置 `.env`
+
+复制配置模板：
 
 ```bash
-git clone https://github.com/cnitlrt/AutoTeam.git && cd AutoTeam
-mkdir -p data && cp .env.example data/.env
-# 编辑 data/.env 填入配置（或启动后在 Web 页面配置）
+cp .env.example .env
+```
+
+然后填写：
+
+```dotenv
+FREEMAIL_BASE_URL=https://freemail.example.com
+FREEMAIL_ROOT_TOKEN=your_root_token
+
+CPA_URL=http://127.0.0.1:8317
+CPA_KEY=your_key
+
+API_KEY=your_panel_api_key
+
+PLAYWRIGHT_PROXY_URL=
+PLAYWRIGHT_PROXY_BYPASS=
+EMAIL_POLL_INTERVAL=3
+EMAIL_POLL_TIMEOUT=300
+```
+
+也可以先启动 Web 服务，首次访问时在页面里完成配置。
+
+### 4. 启动 Web 控制台
+
+```bash
+uv run autoteam api
+```
+
+默认访问：
+
+```text
+http://localhost:8787
+```
+
+如果设置了 `API_KEY`，进入控制台时需要输入该密钥。
+
+## Docker 部署
+
+```bash
+git clone https://github.com/1134189025/auto-team-to-cpa.git
+cd auto-team-to-cpa
+mkdir -p data
+cp .env.example data/.env
 docker compose up -d
 ```
 
-详见 [Docker 部署文档](docs/docker.md)
+容器会将运行数据写入 `data/`。请在 `data/.env` 中填写 Freemail、CPA 和 API Key 配置。
 
-### CLI 命令
+## Web 控制台
 
-| 命令 | 说明 |
+| 页面 | 用途 |
 |------|------|
-| `api` | 启动 Web 面板 + HTTP API（默认端口 8787） |
-| `rotate [N]` | 智能轮转，补满到 N 个（默认 5） |
-| `status` | 查看账号状态 |
-| `check` | 检查额度 |
-| `add` | 添加新账号 |
-| `manual-add` | 手动 OAuth 添加账号（打开链接登录后粘贴回调 URL） |
-| `fill [N]` | 补满成员 |
-| `cleanup [N]` | 清理多余成员 |
-| `sync` | 同步认证文件到 CPA |
-| `pull-cpa` | 从 CPA 反向同步认证文件到本地 |
-| `admin-login` | 管理员登录 |
+| 总览 | 查看启用母号、已完成子号、疑似封禁、额度耗尽、待补传 CPA 等统计 |
+| 母号管理 | 添加/批量导入母号、登录母号、选择 workspace、主号传 CPA |
+| 子号记录 | 查看子号邮箱、所属母号、远端状态、健康状态、Auth 和 CPA 上传情况 |
+| 设置 | 修改 Freemail、CPA、代理、API Key 等配置 |
+| 日志 | 实时查看后端运行日志，便于排查注册、登录、授权和同步问题 |
 
-更多参数与接口说明见 [API 文档](docs/api.md)。
+常用任务按钮包括：
 
-## Web 管理面板
+- 一键批量创建子号
+- 一键补满全部母号
+- 检测封禁子号
+- 一键删除 401 账号
+- 修复母子关联
+- 修复卡住账号
+- 清理待邀请
+- 补传子号 CPA
 
-启动 `uv run autoteam api` 后访问 `http://localhost:8787`。
+## CLI 命令
 
-| 页面 | 功能 |
+```bash
+uv run autoteam api
+uv run autoteam status
+uv run autoteam batch-run
+uv run autoteam fill-all --target-per-parent 5
+uv run autoteam repair-stuck-accounts
+uv run autoteam cpa-resync
+```
+
+母号管理：
+
+```bash
+uv run autoteam parent list
+uv run autoteam parent add --email owner@example.com --label "Team A" --default-batch-size 3
+uv run autoteam parent login <parent_id>
+uv run autoteam parent import-session <parent_id> --email owner@example.com --session-token <token>
+uv run autoteam parent enable <parent_id>
+uv run autoteam parent disable <parent_id>
+uv run autoteam parent remove <parent_id>
+```
+
+## 数据文件
+
+| 路径 | 说明 |
 |------|------|
-| 📊 仪表盘 | 账号统计 + 状态表格 + 登录/移出/删除/同步操作 |
-| 👥 Team 成员 | 全部 Team 成员（含外部成员） |
-| 🔁 账号池操作 | 轮转、检查、补满、添加、清理等会直接改变账号池状态的操作 |
-| 🔄 同步中心 | 同步账号、同步 CPA、拉取 CPA 等对账/同步动作 |
-| 🔐 OAuth 登录 | 生成认证链接；优先自动接收 localhost 回调，失败时也可手动粘贴回调 URL |
-| 📜 任务历史 | 查看后台任务执行状态、参数、耗时与结果 |
-| 📋 日志 | 实时日志查看器 |
-| ⚙️ 设置 | 管理员登录 + 主号 Codex 同步 + 巡检配置 |
+| `.env` | 本地配置，包含 Freemail、CPA、API Key 等敏感信息 |
+| `auths/` | Codex 认证文件 |
+| `accounts.json` | 子号状态和本地账号池 |
+| `main_accounts.json` | 母号状态、登录态引用和默认批量配置 |
+| `freemail_state.json` | Freemail 域名轮询状态 |
+| `autoteam-api*.log` | 后端运行日志 |
 
-## 文档
+这些文件默认不提交到 Git。请不要把真实 token、账号数据、auth 文件或日志上传到公开仓库。
 
-| 文档 | 内容 |
-|------|------|
-| [从零开始部署](docs/getting-started.md) | 完整的首次部署教程，从安装到首次轮转 |
-| [配置说明](docs/configuration.md) | .env 配置项、管理员登录、认证文件格式 |
-| [Docker 部署](docs/docker.md) | Docker Compose、数据持久化、Web 配置 |
-| [API 文档](docs/api.md) | 全部 HTTP 端点、调用示例 |
-| [工作原理](docs/architecture.md) | 轮转流程、状态机、项目结构、依赖 |
-| [常见问题](docs/troubleshooting.md) | 安装/登录/轮转/Docker/Web 面板问题 |
+## 开发
 
-## 适用场景
+后端：
 
-- 需要维持固定数量的 Team 可用席位
-- 需要把 Codex 认证文件同步到 CLIProxyAPI
-- 需要在 Web 面板里完成日常轮转、对账、OAuth 导入
+```bash
+uv sync
+uv run pytest
+uv run ruff check
+```
 
-## 已知限制
+前端：
 
-- **IP 风险** — VPS 的 IP 容易被 OpenAI/Cloudflare 标记，建议使用住宅代理
-- **并发限制** — 同一时间只允许一个 Playwright 操作
-- **验证码** — OpenAI 验证码有效期短，网络延迟可能导致过期
+```bash
+cd web
+npm install
+npm run dev
+npm run build
+```
 
-更多详见 [常见问题](docs/troubleshooting.md)
+前端构建产物会输出到：
 
-## 友情链接
+```text
+src/autoteam/web/dist
+```
 
-感谢 **LinuxDo** 社区的支持！
+## 项目结构
 
-[![LinuxDo](https://img.shields.io/badge/社区-LinuxDo-blue?style=for-the-badge)](https://linux.do/)
+```text
+auto-team-to-cpa/
+├── src/autoteam/
+│   ├── api.py            # FastAPI 服务、Web 面板接口、后台任务
+│   ├── manager.py        # CLI 入口和批量执行逻辑
+│   ├── parents.py        # 母号数据持久化
+│   ├── accounts.py       # 子号数据持久化
+│   ├── freemail.py       # Freemail API 客户端
+│   ├── chatgpt_api.py    # ChatGPT Team 相关浏览器/API 操作
+│   ├── codex_auth.py     # Codex OAuth 和 auth 文件生成
+│   ├── cpa_sync.py       # CLIProxyAPI 上传和补传
+│   ├── health.py         # 子号健康检测
+│   └── web/dist/         # 已构建的 Web 前端
+├── web/src/              # Vue 3 前端源码
+├── tests/                # 单元测试
+├── docs/                 # 设计、配置和排查文档
+└── tools/                # 辅助工具
+```
 
----
+## 风险和限制
 
-## Star History
+- OpenAI、ChatGPT、Codex、Cloudflare 的风控策略可能变化，自动化流程不保证长期稳定。
+- 同一时间大量登录、注册、授权或邀请可能触发风控。
+- VPS IP、代理质量、邮箱域名信誉会明显影响成功率。
+- 401、额度耗尽、疑似封禁等状态需要结合 Web 面板人工判断，不建议完全无人值守。
+- 本项目不会替你保证任何账号、订阅、CPA 服务或认证文件的可用性。
 
-[![Star History Chart](https://api.star-history.com/svg?repos=cnitlrt/AutoTeam&type=Date)](https://star-history.com/#cnitlrt/AutoTeam&Date)
+## License
+
+本项目沿用 MIT License。原项目版权和贡献请参考 [cnitlrt/AutoTeam](https://github.com/cnitlrt/AutoTeam)。
