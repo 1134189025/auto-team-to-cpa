@@ -78,6 +78,7 @@ class SetupConfig(BaseModel):
     CPA_KEY: str = ""
     PLAYWRIGHT_PROXY_URL: str = ""
     PLAYWRIGHT_PROXY_BYPASS: str = ""
+    TARGET_CHILDREN_PER_PARENT: str = "4"
     API_KEY: str = ""
 
 
@@ -111,7 +112,7 @@ def _save_setup_config(config: SetupConfig):
     if not data.get("API_KEY"):
         data["API_KEY"] = secrets.token_urlsafe(24)
 
-    clearable = {"PLAYWRIGHT_PROXY_URL", "PLAYWRIGHT_PROXY_BYPASS"}
+    clearable = {"PLAYWRIGHT_PROXY_URL", "PLAYWRIGHT_PROXY_BYPASS", "TARGET_CHILDREN_PER_PARENT"}
     for key, value in data.items():
         if value or key in clearable:
             _write_env(key, value)
@@ -536,6 +537,8 @@ def _attach_parent_slot_stats(parent: dict, stats: dict[str, int]) -> dict:
 
 
 def _status_payload():
+    from autoteam.config import get_target_children_per_parent
+
     migrate_legacy_data()
     raw_parents = load_parents()
     children = [{key: value for key, value in child.items() if key != "password"} for child in load_accounts()]
@@ -555,6 +558,7 @@ def _status_payload():
         "invited_children": sum(1 for child in children if child.get("status") == STATUS_INVITED),
         "recoverable_children": sum(1 for child in children if child.get("status") in {STATUS_ACCEPTED, STATUS_AUTH_SAVED}),
         "drift_parents": sum(1 for parent in raw_parents if int(parent.get("drift_count") or 0) > 0),
+        "target_children_per_parent": get_target_children_per_parent(),
         "last_batch_at": max((parent.get("last_run_at") or 0 for parent in raw_parents), default=0) or None,
     }
     return {"parents": parents, "children": children, "summary": summary}
@@ -1789,9 +1793,10 @@ def post_batch_run():
 
 @app.post("/api/tasks/fill-all", status_code=202)
 def post_fill_all():
-    from autoteam.manager import TARGET_CHILDREN_PER_PARENT, run_fill_all
+    from autoteam.config import get_target_children_per_parent
+    from autoteam.manager import run_fill_all
 
-    return _start_task("fill-all", run_fill_all, {"target_per_parent": TARGET_CHILDREN_PER_PARENT})
+    return _start_task("fill-all", run_fill_all, {"target_per_parent": get_target_children_per_parent()})
 
 
 @app.post("/api/tasks/check-child-health", status_code=202)

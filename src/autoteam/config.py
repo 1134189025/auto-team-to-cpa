@@ -23,6 +23,18 @@ def _get_int_env(name: str, default: int) -> int:
     return int(parse_env_value(os.environ.get(name, str(default))))
 
 
+def _get_bounded_int_env(name: str, default: int, *, minimum: int, maximum: int) -> int:
+    try:
+        value = int(parse_env_value(os.environ.get(name, str(default))))
+    except Exception:
+        value = default
+    return min(maximum, max(minimum, value))
+
+
+def get_target_children_per_parent() -> int:
+    return _get_bounded_int_env("TARGET_CHILDREN_PER_PARENT", 4, minimum=1, maximum=50)
+
+
 FREEMAIL_BASE_URL = os.environ.get("FREEMAIL_BASE_URL", "").strip()
 FREEMAIL_ROOT_TOKEN = os.environ.get("FREEMAIL_ROOT_TOKEN", "").strip()
 

@@ -1,10 +1,11 @@
 import pytest
 from fastapi import HTTPException
 
-from autoteam import api, chatgpt_api, codex_auth, freemail, manager, setup_wizard
+from autoteam import api, chatgpt_api, codex_auth, config, freemail, manager, setup_wizard
 
 
 def test_status_payload_uses_new_parent_child_summary(monkeypatch):
+    monkeypatch.setenv("TARGET_CHILDREN_PER_PARENT", "7")
     monkeypatch.setattr(
         api,
         "load_parents",
@@ -66,6 +67,7 @@ def test_status_payload_uses_new_parent_child_summary(monkeypatch):
         "invited_children": 1,
         "recoverable_children": 2,
         "drift_parents": 1,
+        "target_children_per_parent": 7,
         "last_batch_at": 2,
     }
     assert payload["parents"][0]["session_present"] is True
@@ -85,12 +87,14 @@ def test_setup_status_uses_freemail_keys(monkeypatch):
     keys = {field["key"] for field in result["fields"]}
     assert "FREEMAIL_BASE_URL" in keys
     assert "FREEMAIL_ROOT_TOKEN" in keys
+    assert "TARGET_CHILDREN_PER_PARENT" in keys
     assert all("value" not in field for field in result["fields"])
 
 
 def test_get_settings_exposes_current_values(monkeypatch):
     monkeypatch.setattr(setup_wizard, "_read_env", lambda: {"FREEMAIL_BASE_URL": "http://freemail.local", "CPA_KEY": "secret-key"})
     monkeypatch.setenv("CPA_URL", "http://127.0.0.1:8317")
+    monkeypatch.delenv("TARGET_CHILDREN_PER_PARENT", raising=False)
 
     result = api.get_settings()
     fields = {field["key"]: field for field in result["fields"]}
@@ -98,6 +102,7 @@ def test_get_settings_exposes_current_values(monkeypatch):
     assert fields["FREEMAIL_BASE_URL"]["value"] == "http://freemail.local"
     assert fields["CPA_KEY"]["value"] == "secret-key"
     assert fields["CPA_URL"]["value"] == "http://127.0.0.1:8317"
+    assert fields["TARGET_CHILDREN_PER_PARENT"]["default"] == "4"
 
 
 def test_parent_bulk_import_creates_and_updates_without_leaking_secrets(monkeypatch):
@@ -238,15 +243,27 @@ def test_post_fill_all_starts_fill_all_task(monkeypatch):
         return {"task_id": "task-1", "command": command, "params": params}
 
     monkeypatch.setattr(api, "_start_task", fake_start_task)
+    monkeypatch.setenv("TARGET_CHILDREN_PER_PARENT", "6")
 
     result = api.post_fill_all()
 
     assert captured == {
         "command": "fill-all",
         "func_name": "run_fill_all",
-        "params": {"target_per_parent": 4},
+        "params": {"target_per_parent": 6},
     }
     assert result["task_id"] == "task-1"
+
+
+def test_target_children_config_normalizes_invalid_values(monkeypatch):
+    monkeypatch.setenv("TARGET_CHILDREN_PER_PARENT", "abc")
+    assert config.get_target_children_per_parent() == 4
+
+    monkeypatch.setenv("TARGET_CHILDREN_PER_PARENT", "0")
+    assert config.get_target_children_per_parent() == 1
+
+    monkeypatch.setenv("TARGET_CHILDREN_PER_PARENT", "99")
+    assert config.get_target_children_per_parent() == 50
 
 
 def test_post_check_child_health_starts_task(monkeypatch):

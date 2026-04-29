@@ -18,6 +18,7 @@ ENV_FILE = PROJECT_ROOT / ".env"
 ENV_EXAMPLE = PROJECT_ROOT / ".env.example"
 
 REQUIRED_CONFIGS = [
+    ("TARGET_CHILDREN_PER_PARENT", "每个母号目标子号数（可选）", "4", True),
     ("FREEMAIL_BASE_URL", "Freemail API 地址", "", False),
     ("FREEMAIL_ROOT_TOKEN", "Freemail Root Token", "", False),
     ("CPA_URL", "CPA (CLIProxyAPI) 地址", "http://127.0.0.1:8317", False),

@@ -51,6 +51,8 @@ from autoteam.setup_wizard import check_and_setup
 
 logger = logging.getLogger(__name__)
 TARGET_CHILDREN_PER_PARENT = 4
+MIN_TARGET_CHILDREN_PER_PARENT = 1
+MAX_TARGET_CHILDREN_PER_PARENT = 50
 DEFAULT_RELINK_CONCURRENCY = 2
 MAX_RELINK_CONCURRENCY = 5
 DEFAULT_HEALTH_CONCURRENCY = 5
@@ -71,6 +73,18 @@ class TeamMemberRemoveError(RuntimeError):
         super().__init__(message)
         self.status_code = status_code
         self.remote_status = remote_status
+
+
+def _normalize_target_children_per_parent(value=None) -> int:
+    if value is None:
+        from autoteam.config import get_target_children_per_parent
+
+        return get_target_children_per_parent()
+    try:
+        target = int(value)
+    except Exception:
+        return TARGET_CHILDREN_PER_PARENT
+    return min(MAX_TARGET_CHILDREN_PER_PARENT, max(MIN_TARGET_CHILDREN_PER_PARENT, target))
 
 
 def _persist_parent_state(parent_id: str, payload: dict):
@@ -1300,7 +1314,8 @@ def run_batch():
     return _run_batch_plan(parents, plan_by_parent, "batch")
 
 
-def run_fill_all(target_per_parent: int = TARGET_CHILDREN_PER_PARENT):
+def run_fill_all(target_per_parent: int | None = None):
+    target_per_parent = _normalize_target_children_per_parent(target_per_parent)
     migrate_legacy_data()
     if not check_and_setup(interactive=False):
         raise RuntimeError("配置不完整，请先完成初始化配置")
@@ -2089,7 +2104,7 @@ def main():
 
     sub.add_parser("batch-run", help="遍历全部启用母号批量创建子号")
     fill_all_parser = sub.add_parser("fill-all", help="将全部启用母号按目标数量补满子号")
-    fill_all_parser.add_argument("--target-per-parent", type=int, default=TARGET_CHILDREN_PER_PARENT)
+    fill_all_parser.add_argument("--target-per-parent", type=int, default=None)
     sub.add_parser("repair-stuck-accounts", help="对账并修复卡住子号，不创建新邀请")
     sub.add_parser("status", help="查看母号和子号状态")
     sub.add_parser("cpa-resync", help="补传 auth_saved/ready 子号到 CLIProxyAPI")

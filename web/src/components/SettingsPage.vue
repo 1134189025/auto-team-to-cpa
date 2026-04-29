@@ -28,6 +28,8 @@
         <input
           v-model="form[field.key]"
           :type="inputType(field.key)"
+          :min="field.key === 'TARGET_CHILDREN_PER_PARENT' ? 1 : undefined"
+          :max="field.key === 'TARGET_CHILDREN_PER_PARENT' ? 50 : undefined"
           :placeholder="field.default || ''"
           class="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-500"
         />
@@ -63,6 +65,7 @@ const message = ref('')
 const messageClass = ref('')
 
 function inputType(key) {
+  if (key === 'TARGET_CHILDREN_PER_PARENT') return 'number'
   return key.includes('PASSWORD') || key.includes('KEY') || key.includes('TOKEN') ? 'password' : 'text'
 }
 

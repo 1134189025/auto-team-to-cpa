@@ -28,6 +28,9 @@
             </label>
             <button class="action-btn action-btn-cyan" @click="$emit('batch-run')">批量创建</button>
             <button class="action-btn action-btn-emerald" @click="$emit('fill-all')">一键补满</button>
+            <span class="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
+              目标：每母号 {{ fillAllTarget }} 个
+            </span>
             <button class="action-btn action-btn-rose" @click="emitCheckHealth">检测封禁子号</button>
             <button class="action-btn action-btn-danger" @click="emitDelete401">一键删除401账号</button>
             <label class="flex items-center gap-2 rounded-2xl border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs text-slate-400">
@@ -134,6 +137,7 @@ const emit = defineEmits(['batch-run', 'fill-all', 'check-health', 'delete-401',
 
 const summary = computed(() => props.status.summary || {})
 const latestChildren = computed(() => [...(props.status.children || [])].slice(-6).reverse())
+const fillAllTarget = computed(() => summary.value.target_children_per_parent || 4)
 const healthCheckConcurrency = ref(5)
 const repairLinksConcurrency = ref(2)
 const cards = computed(() => [
@@ -228,7 +232,8 @@ function formatResult(task) {
     const recovered = task.result?.recovered || 0
     const failed = task.result?.failed || 0
     const blocked = task.result?.blocked_parents || 0
-    return `新建 ${created} / 修复 ${recovered} / 失败 ${failed}${blocked ? ` / 阻塞母号 ${blocked}` : ''}`
+    const target = task.result?.target_per_parent || '-'
+    return `目标 ${target} / 新建 ${created} / 修复 ${recovered} / 失败 ${failed}${blocked ? ` / 阻塞母号 ${blocked}` : ''}`
   }
   return '-'
 }

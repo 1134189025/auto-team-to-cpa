@@ -323,6 +323,17 @@ def test_run_fill_all_blocks_when_reconcile_fails(monkeypatch):
     assert result["blocked_parents"] == 1
 
 
+def test_run_fill_all_uses_configured_target_when_omitted(monkeypatch):
+    monkeypatch.setenv("TARGET_CHILDREN_PER_PARENT", "6")
+    monkeypatch.setattr(manager, "migrate_legacy_data", lambda: None)
+    monkeypatch.setattr(manager, "check_and_setup", lambda interactive=False: True)
+    monkeypatch.setattr(manager, "get_enabled_parents", lambda: [])
+
+    result = manager.run_fill_all()
+
+    assert result["target_per_parent"] == 6
+
+
 def test_run_repair_stuck_accounts_does_not_create_new_invites(monkeypatch):
     parents = [
         {
